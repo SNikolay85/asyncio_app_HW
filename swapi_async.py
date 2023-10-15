@@ -12,56 +12,59 @@ CHUNK_SIZE = 5
 async def get_personage(client, personage_id):
     response = await client.get(f"https://swapi.py4e.com/api/people/{personage_id}")
     json_data = await response.json()
+    json_data["id"] = personage_id
     return json_data
 
 
-async def get_info(urls):
-    async with aiohttp.ClientSession() as session:
-        list_info = await list_data(session, urls)
-        return list_info
-
-
-async def open_link(session, url):
+async def available_link(session, url):
     async with session.get(url) as response:
         if response.status != 200:
             response.raise_for_status()
         return await response.json()
 
 
-async def list_data(session, urls):
+async def list_tasks(session, urls):
     tasks = []
     for url in urls:
-        task = asyncio.create_task(open_link(session, url))
+        task = asyncio.create_task(available_link(session, url))
         tasks.append(task)
     results = await asyncio.gather(*tasks)
     return results
+
+
+async def get_info(urls):
+    async with aiohttp.ClientSession() as session:
+        info = await list_tasks(session, urls)
+        return info
 
 
 async def insert_to_db(results):
     async with Session() as session:
         personages_list = []
         for person_json in results:
-            if person_json.get('url'):
-                films = await get_info(person_json.get('films'))
-                home_world = await get_info([person_json.get('homeworld')])
-                species = await get_info(person_json.get('species'))
-                starships = await get_info(person_json.get('starships'))
-                vehicles = await get_info(person_json.get('vehicles'))
+            if person_json.get("url"):
+                films = await get_info(person_json.get("films"))
+                home_world = await get_info([person_json.get("homeworld")])
+                species = await get_info(person_json.get("species"))
+                starships = await get_info(person_json.get("starships"))
+                vehicles = await get_info(person_json.get("vehicles"))
                 person = SwapiPeople(
-                    id=int(person_json.get('url')[34:-1]),
-                    birth_year=person_json.get('birth_year'),
-                    eye_color=person_json.get('eye_color'),
-                    films=', '.join([film.get('title') for film in films]),
-                    gender=person_json.get('gender'),
-                    hair_color=person_json.get('hair_color'),
-                    height=person_json.get('height'),
-                    home_world=home_world[0].get('name'),
-                    mass=person_json.get('mass'),
-                    name=person_json.get('name'),
-                    skin_color=person_json.get('skin_color'),
-                    species=', '.join([specie.get('name') for specie in species]),
-                    starships=', '.join([starship.get('name') for starship in starships]),
-                    vehicles=', '.join([vehicle.get('name') for vehicle in vehicles])
+                    id=int(person_json.get("id")),
+                    birth_year=person_json.get("birth_year"),
+                    eye_color=person_json.get("eye_color"),
+                    films=", ".join([film.get("title") for film in films]),
+                    gender=person_json.get("gender"),
+                    hair_color=person_json.get("hair_color"),
+                    height=person_json.get("height"),
+                    home_world=home_world[0].get("name"),
+                    mass=person_json.get("mass"),
+                    name=person_json.get("name"),
+                    skin_color=person_json.get("skin_color"),
+                    species=", ".join([specie.get("name") for specie in species]),
+                    starships=", ".join(
+                        [starship.get("name") for starship in starships]
+                    ),
+                    vehicles=", ".join([vehicle.get("name") for vehicle in vehicles]),
                 )
                 personages_list.append(person)
         session.add_all(personages_list)
